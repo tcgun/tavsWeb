@@ -1,0 +1,146 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // YARDIMCI FONKSİYONLAR
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Sayaç güncelleme kontrolü (sadece +/- 1)
+    function isValidCounterUpdate(field) {
+      return (
+        // Eğer alan değişmediyse sorun yok
+        !(field in request.resource.data.diff(resource.data).affectedKeys()) ||
+        // Eğer alan değiştiyse:
+        (
+          request.resource.data[field] is int &&
+          resource.data[field] is int &&
+          (
+            request.resource.data[field] == resource.data[field] + 1 ||
+            request.resource.data[field] == resource.data[field] - 1
+          )
+        )
+      );
+    }
+    
+    // ============================================
+    // USERS (KULLANICILAR)
+    // ============================================
+    match /users/{userId} {
+      allow read: if true;
+      
+      allow create: if isOwner(userId);
+      
+      allow update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        // İstatistik güncellemelerine izin ver (takip işlemleri için)
+        && (
+           (!('stats' in request.resource.data.diff(resource.data).affectedKeys())) ||
+           (
+             request.resource.data.stats.followers is int &&
+             request.resource.data.stats.following is int
+           )
+        );
+      
+      allow delete: if isOwner(userId);
+
+      // Saved Posts Subcollection
+      match /saved_posts/{postId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Likes Subcollection
+      match /likes/{postId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Following Subcollection (Kimi takip ediyorum?)
+      match /following/{targetId} {
+        allow read: if true;
+        allow write: if isOwner(userId);
+      }
+
+      // Followers Subcollection (Beni kim takip ediyor?)
+      match /followers/{followerId} {
+        allow read: if true;
+        // Takip eden kişi (followerId) kendisini bu listeye ekleyebilir/silebilir
+        allow write: if request.auth.uid == followerId;
+      }
+    }
+    
+    // ============================================
+    // POSTS (TAVSİYELER)
+    // ============================================
+    match /posts/{postId} {
+      allow read: if true;
+      
+      allow create: if isAuthenticated()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.keys().hasAll(['authorId', 'title', 'detail', 'category', 'createdAt'])
+        && request.resource.data.likesCount == 0
+        && request.resource.data.commentsCount == 0
+        && request.resource.data.savesCount == 0;
+      
+      allow update: if isAuthenticated()
+        && (
+          // 1. Durum: Sahibi içeriği güncelliyor
+          (
+            request.resource.data.authorId == request.auth.uid &&
+            (!('createdAt' in request.resource.data.diff(resource.data).affectedKeys()))
+          ) ||
+          // 2. Durum: Herhangi bir kullanıcı etkileşim sayaçlarını güncelliyor
+          (
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'savesCount']) &&
+             isValidCounterUpdate('likesCount') &&
+             isValidCounterUpdate('commentsCount') &&
+             isValidCounterUpdate('savesCount')
+          )
+        );
+      
+      allow delete: if isAuthenticated() && resource.data.authorId == request.auth.uid;
+
+      // Comments Subcollection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        allow delete: if isAuthenticated() && (resource.data.userId == request.auth.uid || get(/databases/$(database)/documents/posts/$(postId)).data.authorId == request.auth.uid);
+      }
+    }
+
+    // ============================================
+    // CHATS & MESSAGES
+    // ============================================
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && "participants" in resource.data && request.auth.uid in resource.data.participants;
+      allow create: if isAuthenticated() && request.resource.data.participants.hasAll([request.auth.uid]);
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/chats/$(chatId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/chats/$(chatId)) &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+    
+    // ============================================
+    // NOTIFICATIONS
+    // ============================================
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated(); // Allow anyone to create notification (for likes/follows)
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid; // For marking as read
+    }
+  }
+}
