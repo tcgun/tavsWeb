@@ -2,6 +2,7 @@
 
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import RightSidebar from "@/components/layout/RightSidebar";
 import ProfileHeader from "@/components/profile/ProfileHeader";
 import RecommendationCard from "@/components/feed/RecommendationCard";
 import { auth } from "@/lib/firebase";
@@ -70,7 +71,7 @@ export default function ProfilePage() {
                 <div className="flex gap-6">
                     <Sidebar />
 
-                    <main className="flex-1 max-w-3xl mx-auto">
+                    <main className="flex-1 max-w-2xl mx-auto">
                         <ProfileHeader user={currentUser} isOwnProfile={true} />
 
                         <div className="mb-6">
@@ -86,6 +87,8 @@ export default function ProfilePage() {
                             )}
                         </div>
                     </main>
+
+                    <RightSidebar />
                 </div>
             </div>
         </div>

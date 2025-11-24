@@ -2,6 +2,7 @@
 
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import RightSidebar from "@/components/layout/RightSidebar";
 import { User, Moon, LogOut, Info, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { auth } from "@/lib/firebase";
@@ -24,7 +25,7 @@ export default function SettingsPage() {
                     <Sidebar />
 
                     <main className="flex-1 max-w-2xl mx-auto pb-20">
-                        <h1 className="text-2xl font-bold text-[var(--color-text)] mb-6">Ayarlar</h1>
+
 
                         <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl overflow-hidden">
 
@@ -73,6 +74,8 @@ export default function SettingsPage() {
 
                         </div>
                     </main>
+
+                    <RightSidebar />
                 </div>
             </div>
         </div>

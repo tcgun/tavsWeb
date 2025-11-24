@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Compass, PlusSquare, Bookmark, User } from "lucide-react";
+import { Home, Search, MessageCircle, Bookmark, User } from "lucide-react";
 
 export default function BottomNav() {
     const pathname = usePathname();
 
     const navItems = [
         { icon: Home, label: "Ana Sayfa", href: "/" },
-        { icon: Compass, label: "Keşfet", href: "/explore" },
-        { icon: PlusSquare, label: "Ekle", href: "/create" },
+        { icon: Search, label: "Arama", href: "/search" },
+        { icon: MessageCircle, label: "Mesajlar", href: "/messages" },
         { icon: Bookmark, label: "Kaydedilenler", href: "/saved" },
         { icon: User, label: "Profil", href: "/profile" },
     ];

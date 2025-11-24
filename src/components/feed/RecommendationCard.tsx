@@ -6,9 +6,10 @@ import Link from "next/link";
 import { Post } from "@/lib/types";
 import { useState, useEffect } from "react";
 import { doc, updateDoc, increment, setDoc, deleteDoc, serverTimestamp, writeBatch, getDoc } from "firebase/firestore";
-import { db, auth } from "@/lib/firebase";
+import { db } from "@/lib/firebase";
 import { sendNotification } from "@/lib/notifications";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/AuthContext";
 
 interface RecommendationCardProps {
     post: Post;
@@ -16,18 +17,25 @@ interface RecommendationCardProps {
 }
 
 export default function RecommendationCard({ post, isDetailView = false }: RecommendationCardProps) {
+    const { user } = useAuth();
     const [liked, setLiked] = useState(false);
     const [saved, setSaved] = useState(false);
     const [likesCount, setLikesCount] = useState(post.likesCount);
     const [savesCount, setSavesCount] = useState(post.savesCount);
 
+    // Reset state when post changes to prevent stale data
     useEffect(() => {
-        if (!auth.currentUser) return; // FIX: Don't check if not logged in
+        setLikesCount(post.likesCount);
+        setSavesCount(post.savesCount);
+    }, [post]);
+
+    useEffect(() => {
+        if (!user) return;
 
         const checkStatus = async () => {
             try {
-                const userLikeRef = doc(db, "users", auth.currentUser!.uid, "likes", post.id);
-                const userSaveRef = doc(db, "users", auth.currentUser!.uid, "saved_posts", post.id);
+                const userLikeRef = doc(db, "users", user.uid, "likes", post.id);
+                const userSaveRef = doc(db, "users", user.uid, "saved_posts", post.id);
 
                 const [likeDoc, saveDoc] = await Promise.all([
                     getDoc(userLikeRef),
@@ -36,26 +44,27 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
 
                 setLiked(likeDoc.exists());
                 setSaved(saveDoc.exists());
-            } catch (error) {
+            } catch (error: any) {
+                if (error?.code === 'permission-denied') return;
                 console.error("Error checking status:", error);
             }
         };
 
         checkStatus();
-    }, [post.id]);
+    }, [post.id, user]); // Added user dependency
 
     const handleLike = async () => {
-        if (!auth.currentUser) return;
+        if (!user) return;
 
-        const postRef = doc(db, "posts", post.id);
-        const userLikeRef = doc(db, "users", auth.currentUser.uid, "likes", post.id);
+        // Optimistic update
         const newLikedState = !liked;
-
         setLiked(newLikedState);
         setLikesCount(prev => newLikedState ? prev + 1 : prev - 1);
 
         try {
             const batch = writeBatch(db);
+            const postRef = doc(db, "posts", post.id);
+            const userLikeRef = doc(db, "users", user.uid, "likes", post.id);
 
             batch.update(postRef, {
                 likesCount: increment(newLikedState ? 1 : -1)
@@ -75,31 +84,32 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
             if (newLikedState) {
                 await sendNotification(
                     post.authorId,
-                    auth.currentUser.uid,
-                    auth.currentUser.displayName || "Bir kullanıcı",
+                    user.uid,
+                    user.displayName || "Bir kullanıcı",
                     "like",
                     post.id
                 );
             }
         } catch (error) {
             console.error("Error updating like:", error);
+            // Revert optimistic update
             setLiked(!newLikedState);
             setLikesCount(prev => newLikedState ? prev - 1 : prev + 1);
         }
     };
 
     const handleSave = async () => {
-        if (!auth.currentUser) return;
+        if (!user) return;
 
-        const postRef = doc(db, "posts", post.id);
-        const userSavedPostRef = doc(db, "users", auth.currentUser.uid, "saved_posts", post.id);
+        // Optimistic update
         const newSavedState = !saved;
-
         setSaved(newSavedState);
         setSavesCount(prev => newSavedState ? prev + 1 : prev - 1);
 
         try {
             const batch = writeBatch(db);
+            const postRef = doc(db, "posts", post.id);
+            const userSavedPostRef = doc(db, "users", user.uid, "saved_posts", post.id);
 
             batch.update(postRef, {
                 savesCount: increment(newSavedState ? 1 : -1)
@@ -117,6 +127,7 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
             await batch.commit();
         } catch (error) {
             console.error("Error updating save:", error);
+            // Revert optimistic update
             setSaved(!newSavedState);
             setSavesCount(prev => newSavedState ? prev - 1 : prev + 1);
         }
@@ -154,7 +165,7 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
                     <span className="text-xs bg-[var(--color-background)] px-2 py-1 rounded-full text-[var(--color-primary)] border border-[var(--color-border)]">
                         {post.category}
                     </span>
-                    {auth.currentUser?.uid === post.authorId && (
+                    {user?.uid === post.authorId && (
                         <button
                             onClick={handleDelete}
                             className="p-1 text-[var(--color-muted)] hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
@@ -189,28 +200,28 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
                 </div>
             )}
 
-            <div className="flex items-center justify-between pt-3 border-t border-[var(--color-border)]">
+            <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--color-border)]">
                 <button
                     onClick={handleLike}
-                    className={`flex items-center gap-2 transition-colors ${liked ? "text-red-500" : "text-[var(--color-muted)] hover:text-red-500"}`}
+                    className={`flex items-center justify-center gap-2 transition-colors ${liked ? "text-[var(--color-primary)]" : "text-[var(--color-muted)] hover:text-[var(--color-primary)]"}`}
                 >
                     <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
-                    <span className="text-sm">{likesCount}</span>
+                    <span className="text-sm min-w-[1ch] text-left">{likesCount}</span>
                 </button>
-                <Link href={`/post/${post.id}`}>
-                    <button className="flex items-center gap-2 text-[var(--color-muted)] hover:text-blue-500 transition-colors">
+                <Link href={`/post/${post.id}`} className="flex justify-center">
+                    <button className="flex items-center gap-2 text-[var(--color-muted)] hover:text-[var(--color-accent)] transition-colors">
                         <MessageCircle className="h-5 w-5" />
-                        <span className="text-sm">{post.commentsCount}</span>
+                        <span className="text-sm min-w-[1ch] text-left">{post.commentsCount}</span>
                     </button>
                 </Link>
                 <button
                     onClick={handleSave}
-                    className={`flex items-center gap-2 transition-colors ${saved ? "text-yellow-500" : "text-[var(--color-muted)] hover:text-yellow-500"}`}
+                    className={`flex items-center justify-center gap-2 transition-colors ${saved ? "text-[var(--color-secondary)]" : "text-[var(--color-muted)] hover:text-[var(--color-secondary)]"}`}
                 >
                     <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} />
-                    <span className="text-sm">{savesCount}</span>
+                    <span className="text-sm min-w-[1ch] text-left">{savesCount}</span>
                 </button>
-                <button className="text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors">
+                <button className="flex items-center justify-center text-[var(--color-muted)] hover:text-[var(--color-text)] transition-colors">
                     <Share2 className="h-5 w-5" />
                 </button>
             </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { collection, query, orderBy, limit, startAfter, getDocs, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Post } from "@/lib/types";
@@ -10,14 +10,22 @@ export function useFeed() {
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
     const [hasMore, setHasMore] = useState(true);
 
-    const fetchPosts = async (isInitial = false) => {
+    const lastVisibleRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
+
+    const fetchPosts = useCallback(async (isInitial = false) => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
+
         try {
             if (isInitial) {
                 setLoading(true);
                 setError(null);
+                lastVisibleRef.current = null;
             } else {
                 setLoadingMore(true);
             }
@@ -28,11 +36,11 @@ export function useFeed() {
                 limit(POSTS_PER_PAGE)
             );
 
-            if (!isInitial && lastVisible) {
+            if (!isInitial && lastVisibleRef.current) {
                 q = query(
                     collection(db, "posts"),
                     orderBy("createdAt", "desc"),
-                    startAfter(lastVisible),
+                    startAfter(lastVisibleRef.current),
                     limit(POSTS_PER_PAGE)
                 );
             }
@@ -43,17 +51,21 @@ export function useFeed() {
                 setHasMore(false);
                 if (isInitial) setPosts([]);
             } else {
-                const fetchedPosts: Post[] = [];
-                snapshot.forEach((doc) => {
-                    fetchedPosts.push({ id: doc.id, ...doc.data() } as Post);
-                });
+                const fetchedPosts: Post[] = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                } as Post));
 
-                setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+                lastVisibleRef.current = snapshot.docs[snapshot.docs.length - 1];
 
                 if (isInitial) {
                     setPosts(fetchedPosts);
                 } else {
-                    setPosts(prev => [...prev, ...fetchedPosts]);
+                    setPosts(prev => {
+                        const existingIds = new Set(prev.map(p => p.id));
+                        const newPosts = fetchedPosts.filter(p => !existingIds.has(p.id));
+                        return [...prev, ...newPosts];
+                    });
                 }
 
                 if (snapshot.docs.length < POSTS_PER_PAGE) {
@@ -61,17 +73,27 @@ export function useFeed() {
                 }
             }
         } catch (err) {
+            if (err instanceof Error && err.name === 'AbortError') {
+                return;
+            }
             console.error("Error fetching posts:", err);
             setError("Tavsiyeler yüklenirken bir hata oluştu.");
         } finally {
-            setLoading(false);
-            setLoadingMore(false);
+            if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+                setLoading(false);
+                setLoadingMore(false);
+            }
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchPosts(true);
-    }, []);
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [fetchPosts]);
 
     const loadMore = () => {
         if (!loadingMore && hasMore) {

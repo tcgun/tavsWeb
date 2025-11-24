@@ -17,20 +17,14 @@ service cloud.firestore {
     
     // Sayaç güncelleme kontrolü (sadece +/- 1)
     function isValidCounterUpdate(field) {
-      return (
-        // Eğer alan değişmediyse sorun yok
-        !(field in request.resource.data.diff(resource.data).affectedKeys()) ||
-        // Eğer alan değiştiyse:
-        (
-          request.resource.data[field] is int &&
-          resource.data[field] is int &&
-          (
-            request.resource.data[field] == resource.data[field] + 1 ||
-            request.resource.data[field] == resource.data[field] - 1
-          )
-        )
-      );
+      let before = resource.data.get(field, 0);
+      let after = request.resource.data.get(field, 0);
+      return (after - before) == 1 || (after - before) == -1;
     }
+    
+    // ... (existing code)
+
+
     
     // ============================================
     // USERS (KULLANICILAR)
@@ -139,7 +133,11 @@ service cloud.firestore {
     // ============================================
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated(); // Allow anyone to create notification (for likes/follows)
+      
+      // Only the person performing the action (actorId) can create a notification
+      allow create: if isAuthenticated() 
+        && request.resource.data.actorId == request.auth.uid;
+        
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid; // For marking as read
     }
   }

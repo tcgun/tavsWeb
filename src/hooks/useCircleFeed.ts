@@ -1,14 +1,23 @@
-import { useState, useEffect } from "react";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { collection, query, where, orderBy, limit, startAfter, getDocs, onSnapshot, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Post } from "@/lib/types";
 import { onAuthStateChanged } from "firebase/auth";
+
+const POSTS_PER_PAGE = 5;
+const MAX_FOLLOWING_IN_QUERY = 10; // Firestore 'in' limit
 
 export function useCircleFeed() {
     const [user, setUser] = useState<any>(null);
     const [followingIds, setFollowingIds] = useState<string[]>([]);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [hasMore, setHasMore] = useState(true);
+    const [followingCount, setFollowingCount] = useState(0);
+
+    const lastVisibleRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
+    const abortControllerRef = useRef<AbortController | null>(null);
 
     // 1. Listen for auth state
     useEffect(() => {
@@ -29,11 +38,16 @@ export function useCircleFeed() {
 
         const followingRef = collection(db, "users", user.uid, "following");
 
+        // Using onSnapshot to keep following list real-time
         const unsubscribe = onSnapshot(followingRef, (snap) => {
             const ids = snap.docs.map(d => d.id);
-            setFollowingIds(ids);
-            // If no following, stop loading
-            if (ids.length === 0) {
+            setFollowingCount(ids.length);
+
+            // Include own ID to see own posts
+            const allIds = [user.uid, ...ids];
+            setFollowingIds(allIds);
+
+            if (allIds.length === 0) {
                 setPosts([]);
                 setLoading(false);
             }
@@ -45,47 +59,118 @@ export function useCircleFeed() {
         return () => unsubscribe();
     }, [user]);
 
-    // 3. Fetch and filter posts
-    useEffect(() => {
-        if (!user || followingIds.length === 0) return;
+    // 3. Fetch posts with optimized query
+    const fetchPosts = useCallback(async (isInitial = false) => {
+        if (!user || followingIds.length === 0) {
+            if (isInitial) setLoading(false);
+            return;
+        }
 
-        setLoading(true);
-        // Note: Fetching all posts and filtering client-side is an MVP solution.
-        // For production with many posts, use 'where' with chunks or a dedicated feed collection.
-        const q = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-            const fetchedPosts: Post[] = [];
-            snapshot.forEach((doc) => {
-                const post = { id: doc.id, ...doc.data() } as Post;
-                // Include posts from followed users OR own posts
-                if (followingIds.includes(post.authorId) || post.authorId === user.uid) {
-                    fetchedPosts.push(post);
+        try {
+            if (isInitial) {
+                setLoading(true);
+                lastVisibleRef.current = null;
+            } else {
+                setLoadingMore(true);
+            }
+
+            // Firestore 'in' query supports max 10 values.
+            // We take the first 10 IDs (including self).
+            // TODO: Implement chunking or separate feed collection for >10 following
+            const idsToQuery = followingIds.slice(0, MAX_FOLLOWING_IN_QUERY);
+
+            let q = query(
+                collection(db, "posts"),
+                where("authorId", "in", idsToQuery),
+                orderBy("createdAt", "desc"),
+                limit(POSTS_PER_PAGE)
+            );
+
+            if (!isInitial && lastVisibleRef.current) {
+                q = query(
+                    collection(db, "posts"),
+                    where("authorId", "in", idsToQuery),
+                    orderBy("createdAt", "desc"),
+                    startAfter(lastVisibleRef.current),
+                    limit(POSTS_PER_PAGE)
+                );
+            }
+
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                setHasMore(false);
+                if (isInitial) setPosts([]);
+            } else {
+                const fetchedPosts: Post[] = snapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                } as Post));
+
+                lastVisibleRef.current = snapshot.docs[snapshot.docs.length - 1];
+
+                if (isInitial) {
+                    setPosts(fetchedPosts);
+                } else {
+                    // Filter out duplicates just in case
+                    setPosts(prev => {
+                        const existingIds = new Set(prev.map(p => p.id));
+                        const newPosts = fetchedPosts.filter(p => !existingIds.has(p.id));
+                        return [...prev, ...newPosts];
+                    });
                 }
-            });
-            setPosts(fetchedPosts);
-            setLoading(false);
-        });
 
-        return () => unsubscribe();
+                if (snapshot.docs.length < POSTS_PER_PAGE) {
+                    setHasMore(false);
+                }
+            }
+        } catch (error) {
+            if (error instanceof Error && error.name === 'AbortError') {
+                return;
+            }
+            console.error("Error fetching posts:", error);
+        } finally {
+            if (abortControllerRef.current && !abortControllerRef.current.signal.aborted) {
+                setLoading(false);
+                setLoadingMore(false);
+            }
+        }
     }, [user, followingIds]);
 
-    // 4. Pagination Logic
-    const [visibleCount, setVisibleCount] = useState(5);
-    const [loadingMore, setLoadingMore] = useState(false);
+    // Initial fetch when followingIds changes
+    useEffect(() => {
+        if (user && followingIds.length > 0) {
+            fetchPosts(true);
+        } else if (user && followingIds.length === 0) {
+            // If user has no following (and logic above handled it), ensure loading is false
+            setLoading(false);
+        }
+
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, [user, followingIds.length, fetchPosts]);
 
     const loadMore = () => {
-        if (visibleCount < posts.length) {
-            setLoadingMore(true);
-            setTimeout(() => {
-                setVisibleCount(prev => prev + 5);
-                setLoadingMore(false);
-            }, 500); // Fake delay for better UX
+        if (!loadingMore && hasMore) {
+            fetchPosts(false);
         }
     };
 
-    const hasMore = visibleCount < posts.length;
-    const visiblePosts = posts.slice(0, visibleCount);
-
-    return { posts: visiblePosts, loading, loadingMore, hasMore, loadMore, followingCount: followingIds.length, user };
+    return {
+        posts,
+        loading,
+        loadingMore,
+        hasMore,
+        loadMore,
+        followingCount,
+        user
+    };
 }

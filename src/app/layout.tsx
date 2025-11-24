@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import BottomNav from "@/components/layout/BottomNav";
+import FloatingActionButton from "@/components/layout/FloatingActionButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/components/AuthContext";
+import AuthGuard from "@/components/AuthGuard";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -49,10 +52,15 @@ export default function RootLayout({
       <body
         className={`${inter.variable} antialiased`}
       >
-        <ErrorBoundary>
-          {children}
-        </ErrorBoundary>
-        <BottomNav />
+        <AuthProvider>
+          <AuthGuard>
+            <ErrorBoundary>
+              {children}
+            </ErrorBoundary>
+            <FloatingActionButton />
+            <BottomNav />
+          </AuthGuard>
+        </AuthProvider>
       </body>
     </html>
   );

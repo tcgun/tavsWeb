@@ -7,6 +7,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Post } from "@/lib/types";
 import Header from "@/components/layout/Header";
 import Sidebar from "@/components/layout/Sidebar";
+import RightSidebar from "@/components/layout/RightSidebar";
 import RecommendationCard from "@/components/feed/RecommendationCard";
 import { Loader2, Bookmark } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -78,12 +79,7 @@ export default function SavedPage() {
                     <Sidebar />
 
                     <main className="flex-1 max-w-2xl mx-auto pb-20">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 bg-[var(--color-card)] rounded-full border border-[var(--color-border)]">
-                                <Bookmark className="h-6 w-6 text-[var(--color-primary)]" />
-                            </div>
-                            <h1 className="text-2xl font-bold text-[var(--color-text)]">Kaydedilenler</h1>
-                        </div>
+
 
                         {posts.length > 0 ? (
                             <div className="space-y-4">
@@ -101,6 +97,8 @@ export default function SavedPage() {
                             </div>
                         )}
                     </main>
+
+                    <RightSidebar />
                 </div>
             </div>
         </div>

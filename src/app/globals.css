@@ -3,6 +3,7 @@
 :root {
   /* Ana Tema Renkleri */
   --color-primary: #BA68C8;
+  --color-secondary: #9C27B0;
   --color-accent: #4A90E2;
 
   /* Arka Plan Renkleri */
@@ -19,13 +20,14 @@
 
 @theme inline {
   --color-primary: var(--color-primary);
+  --color-secondary: var(--color-secondary);
   --color-accent: var(--color-accent);
   --color-background: var(--color-background);
   --color-card: var(--color-card);
   --color-text: var(--color-text);
   --color-muted: var(--color-muted);
   --color-border: var(--color-border);
-  
+
   --font-sans: var(--font-inter);
 }
 
@@ -33,4 +35,49 @@ body {
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-inter), sans-serif;
+  scrollbar-gutter: stable;
+}
+
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+/* Modern scrollbar */
+.custom-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scroll::-webkit-scrollbar-track {
+  background: var(--color-card);
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb {
+  background-color: var(--color-primary);
+  background-image: linear-gradient(to bottom, var(--color-primary), var(--color-secondary));
+  border-radius: 4px;
+}
+
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-secondary);
+  background-image: linear-gradient(to bottom, var(--color-secondary), var(--color-primary));
+}
+
+/* Firefox scrollbar */
+.custom-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-primary) var(--color-card);
 }
