@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Home, Compass, Users, Bookmark, Settings, MessageCircle, User, Bell } from "lucide-react";
+import { useCategories } from "@/hooks/useCategories";
 
 const navItems = [
     { icon: Home, label: "Ana Sayfa", href: "/" },
@@ -15,8 +16,21 @@ const navItems = [
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const { categories: fetchedCategories, loading } = useCategories();
+
+    // Only use default categories if we are NOT loading and have NO fetched categories
+    // This prevents the "flash" of default content during initial load
+    const defaultCategories = ["Dizi/Film", "Kitap", "Müzik", "Mekan", "Teknoloji"];
+
+    let categoriesToShow: string[] = [];
+    if (!loading) {
+        categoriesToShow = fetchedCategories.length > 0
+            ? fetchedCategories.map(c => c.name)
+            : defaultCategories;
+    }
+
     return (
-        <aside className="hidden lg:block w-64 sticky top-20 h-[calc(100vh-5rem)] overflow-y-auto z-30">
+        <aside className="hidden lg:block w-64 z-30 pb-20">
             <nav className="space-y-2">
                 {navItems.map((item) => {
                     const isActive = item.href === "/"
@@ -42,15 +56,22 @@ export default function Sidebar() {
             <div className="mt-8 px-4">
                 <h3 className="text-sm font-semibold text-[var(--color-muted)] mb-4">Kategoriler</h3>
                 <div className="space-y-2">
-                    {["Dizi/Film", "Kitap", "Müzik", "Mekan", "Teknoloji"].map((cat) => (
-                        <Link
-                            key={cat}
-                            href={`/category/${cat.toLowerCase()}`}
-                            className="block text-sm text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
-                        >
-                            # {cat}
-                        </Link>
-                    ))}
+                    {loading ? (
+                        // Skeleton loading state
+                        Array.from({ length: 5 }).map((_, i) => (
+                            <div key={i} className="h-5 bg-[var(--color-card)] rounded animate-pulse w-3/4" />
+                        ))
+                    ) : (
+                        categoriesToShow.map((cat) => (
+                            <Link
+                                key={cat}
+                                href={`/category/${encodeURIComponent(cat.toLowerCase())}`}
+                                className="block text-sm text-[var(--color-text)] hover:text-[var(--color-primary)] transition-colors"
+                            >
+                                # {cat}
+                            </Link>
+                        ))
+                    )}
                 </div>
             </div>
         </aside>

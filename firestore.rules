@@ -34,15 +34,16 @@ service cloud.firestore {
       
       allow create: if isOwner(userId);
       
-      allow update: if isOwner(userId)
-        && request.resource.data.uid == userId
-        // İstatistik güncellemelerine izin ver (takip işlemleri için)
-        && (
-           (!('stats' in request.resource.data.diff(resource.data).affectedKeys())) ||
-           (
-             request.resource.data.stats.followers is int &&
-             request.resource.data.stats.following is int
-           )
+      allow update: if 
+        // 1. Kendi profilini güncelliyorsa
+        (isOwner(userId) && request.resource.data.uid == userId)
+        ||
+        // 2. Başkası takip ediyorsa (sadece followers sayısını değiştirebilir)
+        (
+          isAuthenticated() &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['stats']) &&
+          request.resource.data.stats.following == resource.data.stats.following &&
+          (request.resource.data.stats.followers - resource.data.stats.followers == 1 || request.resource.data.stats.followers - resource.data.stats.followers == -1)
         );
       
       allow delete: if isOwner(userId);
@@ -114,7 +115,7 @@ service cloud.firestore {
     // CHATS & MESSAGES
     // ============================================
     match /chats/{chatId} {
-      allow read: if isAuthenticated() && "participants" in resource.data && request.auth.uid in resource.data.participants;
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
       allow create: if isAuthenticated() && request.resource.data.participants.hasAll([request.auth.uid]);
       allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
       
@@ -134,11 +135,19 @@ service cloud.firestore {
     match /notifications/{notificationId} {
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
       
-      // Only the person performing the action (actorId) can create a notification
+      // Only the person performing the action (senderId) can create a notification
       allow create: if isAuthenticated() 
-        && request.resource.data.actorId == request.auth.uid;
+        && request.resource.data.senderId == request.auth.uid;
         
       allow update: if isAuthenticated() && resource.data.userId == request.auth.uid; // For marking as read
+    }
+
+    // ============================================
+    // CATEGORIES
+    // ============================================
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if false; // Admin only (via Console)
     }
   }
 }

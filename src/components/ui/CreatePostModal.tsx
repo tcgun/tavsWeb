@@ -1,28 +1,39 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { addDoc, collection } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { X, ImagePlus, ChevronDown } from "lucide-react";
 
 import { uploadImage } from "@/services/imageUpload";
+import { useCategories } from "@/hooks/useCategories";
 
 interface CreatePostModalProps {
     isOpen: boolean;
     onClose: () => void;
+    initialCategory?: string;
 }
 
-export default function CreatePostModal({ isOpen, onClose }: CreatePostModalProps) {
+export default function CreatePostModal({ isOpen, onClose, initialCategory }: CreatePostModalProps) {
     const [title, setTitle] = useState("");
     const [detail, setDetail] = useState("");
-    const [category, setCategory] = useState("Dizi/Film");
+    const [category, setCategory] = useState(initialCategory || "Dizi/Film");
     const [image, setImage] = useState<File | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
 
-    const categories = [
+    useEffect(() => {
+        if (initialCategory) {
+            setCategory(initialCategory);
+        }
+    }, [initialCategory]);
+
+    const { categories: fetchedCategories, loading: categoriesLoading } = useCategories();
+
+    // Fallback categories if database is empty or loading
+    const defaultCategories = [
         "Dizi/Film",
         "Kitap",
         "Müzik",
@@ -33,6 +44,8 @@ export default function CreatePostModal({ isOpen, onClose }: CreatePostModalProp
         "Kişisel",
         "Diğer",
     ];
+
+    const categories = fetchedCategories.length > 0 ? fetchedCategories.map(c => c.name) : defaultCategories;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

@@ -1,28 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  /* Ana Tema Renkleri - Logo Mavisi Bazlı */
-  --color-primary: #2563EB;
-  /* Royal Blue */
-  --color-secondary: #1D4ED8;
-  /* Darker Blue */
-  --color-accent: #60A5FA;
-  /* Light Blue */
+  /* Ana Tema Renkleri */
+  --color-primary: #BA68C8;
+  --color-secondary: #9C27B0;
+  --color-accent: #4A90E2;
 
-  /* Arka Plan Renkleri - Midnight Blue Teması */
-  --color-background: #0B1120;
-  /* Very Dark Blue */
-  --color-card: #1E293B;
-  /* Slate 800 */
+  /* Arka Plan Renkleri */
+  --color-background: #1C1424;
+  --color-card: #2a1f3d;
 
   /* Metin Renkleri */
-  --color-text: #F8FAFC;
-  /* Slate 50 */
-  --color-muted: #94A3B8;
-  /* Slate 400 */
+  --color-text: #f8fafc;
+  --color-muted: #9ca3af;
 
   /* Border */
-  --color-border: rgba(148, 163, 184, 0.15);
+  --color-border: rgba(255, 255, 255, 0.1);
 }
 
 @theme inline {

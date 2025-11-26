@@ -101,6 +101,17 @@ function UserItem({ user }: { user: any }) {
             }
 
             await batch.commit();
+
+            // Send notification for new follow
+            if (newIsFollowing) {
+                await sendNotification(
+                    user.uid,
+                    auth.currentUser.uid,
+                    auth.currentUser.displayName || "Bir kullanıcı",
+                    "follow",
+                    auth.currentUser.uid
+                );
+            }
         } catch (error) {
             console.error("Error updating follow status:", error);
             setIsFollowing(!newIsFollowing);

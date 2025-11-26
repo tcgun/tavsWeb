@@ -6,6 +6,7 @@ import { addDoc, collection } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { Image as ImageIcon, X } from "lucide-react";
 import Header from "@/components/layout/Header";
+import { useCategories } from "@/hooks/useCategories";
 
 export default function CreatePostPage() {
     const [title, setTitle] = useState("");
@@ -15,7 +16,10 @@ export default function CreatePostPage() {
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
-    const categories = [
+    const { categories: fetchedCategories, loading: categoriesLoading } = useCategories();
+
+    // Fallback categories if database is empty or loading
+    const defaultCategories = [
         "Dizi/Film",
         "Kitap",
         "Müzik",
@@ -26,6 +30,8 @@ export default function CreatePostPage() {
         "Kişisel",
         "Diğer",
     ];
+
+    const categories = fetchedCategories.length > 0 ? fetchedCategories.map(c => c.name) : defaultCategories;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

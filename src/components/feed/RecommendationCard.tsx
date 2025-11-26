@@ -23,14 +23,19 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
     const [likesCount, setLikesCount] = useState(post.likesCount);
     const [savesCount, setSavesCount] = useState(post.savesCount);
 
-    // Reset state when post changes to prevent stale data
+    // Reset counts when post ID changes
     useEffect(() => {
         setLikesCount(post.likesCount);
         setSavesCount(post.savesCount);
-    }, [post]);
+    }, [post.id, post.likesCount, post.savesCount]);
 
+    // Check like/save status when post or user changes
     useEffect(() => {
-        if (!user) return;
+        if (!user) {
+            setLiked(false);
+            setSaved(false);
+            return;
+        }
 
         const checkStatus = async () => {
             try {
@@ -51,10 +56,13 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
         };
 
         checkStatus();
-    }, [post.id, user]); // Added user dependency
+    }, [post.id, user?.uid]);
 
     const handleLike = async () => {
         if (!user) return;
+
+        // Prevent liking own posts
+        if (user.uid === post.authorId) return;
 
         // Optimistic update
         const newLikedState = !liked;
@@ -203,7 +211,13 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
             <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--color-border)]">
                 <button
                     onClick={handleLike}
-                    className={`flex items-center justify-center gap-2 transition-colors ${liked ? "text-[var(--color-primary)]" : "text-[var(--color-muted)] hover:text-[var(--color-primary)]"}`}
+                    disabled={user?.uid === post.authorId}
+                    className={`flex items-center justify-center gap-2 transition-colors ${user?.uid === post.authorId
+                        ? "text-[var(--color-muted)] opacity-50 cursor-not-allowed"
+                        : liked
+                            ? "text-[var(--color-primary)]"
+                            : "text-[var(--color-muted)] hover:text-[var(--color-primary)]"
+                        }`}
                 >
                     <Heart className={`h-5 w-5 ${liked ? "fill-current" : ""}`} />
                     <span className="text-sm min-w-[1ch] text-left">{likesCount}</span>

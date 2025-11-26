@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams } from "next/navigation";
 import { collection, query, where, orderBy, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -10,50 +10,73 @@ import Sidebar from "@/components/layout/Sidebar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import RecommendationCard from "@/components/feed/RecommendationCard";
 import { Loader2, Hash } from "lucide-react";
+import CreatePostModal from "@/components/ui/CreatePostModal";
+import { useCategories } from "@/hooks/useCategories";
 
 export default function CategoryPage() {
     const params = useParams();
-    // Decode URI component to handle Turkish characters correctly if needed, 
-    // though usually slugs are URL safe. Let's assume slug is the category name lowercased or similar.
-    // For better matching, we might need to capitalize it back or store a slug field.
-    // In Sidebar we used: href={`/category/${cat.toLowerCase()}`}
-    // In Post creation we stored: category (e.g. "Kitap")
-    // So we need to handle case insensitivity or mapping.
-    // Firestore queries are case sensitive.
-    // A simple mapping for MVP:
-
+    const { categories, loading: categoriesLoading } = useCategories();
     const slug = decodeURIComponent(params.slug as string);
 
-    const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-    // This is a bit naive for "dizi/film" -> "Dizi/film" but let's try to match exactly what we send.
-    // Sidebar sends: "dizi/film", "kitap", "müzik", "mekan", "teknoloji"
-    // DB stores: "Dizi/Film", "Kitap", "Müzik", "Mekan", "Teknoloji"
+    // Find the matching category name from the fetched categories
+    // This ensures we query Firestore with the exact case-sensitive name (e.g. "Dizi/Film")
+    const categoryName = useMemo(() => {
+        // If categories are still loading, don't try to guess yet to avoid flickering
+        if (categoriesLoading && categories.length === 0) return "";
 
-    const categoryMap: { [key: string]: string } = {
-        "dizi/film": "Dizi/Film",
-        "kitap": "Kitap",
-        "müzik": "Müzik",
-        "mekan": "Mekan",
-        "teknoloji": "Teknoloji"
-    };
+        const found = categories.find(c => c.name.toLowerCase() === slug.toLowerCase());
+        if (found) return found.name;
 
-    const categoryName = categoryMap[slug] || capitalize(slug);
+        // Fallback for legacy/hardcoded URLs if not in DB yet
+        const categoryMap: { [key: string]: string } = {
+            "dizi/film": "Dizi/Film",
+            "kitap": "Kitap",
+            "müzik": "Müzik",
+            "mekan": "Mekan",
+            "teknoloji": "Teknoloji"
+        };
+
+        // If we have categories but didn't find a match, try the map or format the slug
+        // But if categories are empty (and not loading), it might be a network issue or empty DB, 
+        // so we still try to format the slug to show something.
+        return categoryMap[slug.toLowerCase()] || (slug.charAt(0).toUpperCase() + slug.slice(1));
+    }, [categories, slug, categoriesLoading]);
 
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isModalOpen, setIsModalOpen] = useState(false);
 
     useEffect(() => {
+        if (!categoryName) return;
+
         setLoading(true);
+
+        // Generate variations to handle "Dizi/Film" vs "Dizi / Film" mismatch
+        const variations = [categoryName];
+        if (categoryName.includes("/")) {
+            if (categoryName.includes(" / ")) {
+                variations.push(categoryName.replace(" / ", "/"));
+            } else {
+                variations.push(categoryName.replace("/", " / "));
+            }
+        }
+
         const q = query(
             collection(db, "posts"),
-            where("category", "==", categoryName),
+            where("category", "in", variations),
             orderBy("createdAt", "desc")
         );
 
         const unsubscribe = onSnapshot(q, (snapshot) => {
             const fetchedPosts: Post[] = [];
             snapshot.forEach((doc) => {
-                fetchedPosts.push({ id: doc.id, ...doc.data() } as Post);
+                const data = doc.data();
+                fetchedPosts.push({
+                    id: doc.id,
+                    ...data,
+                    // Handle Firestore Timestamp or String
+                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt
+                } as Post);
             });
             setPosts(fetchedPosts);
             setLoading(false);
@@ -97,9 +120,15 @@ export default function CategoryPage() {
                             <div className="text-center py-12 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl">
                                 <Hash className="h-12 w-12 text-[var(--color-muted)] mx-auto mb-4" />
                                 <h3 className="text-lg font-medium text-[var(--color-text)] mb-2">Bu kategoride henüz içerik yok</h3>
-                                <p className="text-[var(--color-muted)]">
+                                <p className="text-[var(--color-muted)] mb-6">
                                     İlk tavsiyeyi sen paylaşabilirsin!
                                 </p>
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-opacity-90 transition-colors font-medium"
+                                >
+                                    Tavsiye Paylaş
+                                </button>
                             </div>
                         )}
                     </main>
@@ -107,6 +136,12 @@ export default function CategoryPage() {
                     <RightSidebar />
                 </div>
             </div>
+
+            <CreatePostModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                initialCategory={categoryName}
+            />
         </div>
     );
 }
