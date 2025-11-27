@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, MessageCircle, Bookmark, Share2, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, Bookmark, Share2, Trash2, MapPin } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { Post } from "@/lib/types";
@@ -206,6 +206,19 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
                         className="object-cover"
                     />
                 </div>
+            )}
+
+            {post.location && (
+                <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${post.location.lat},${post.location.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-[var(--color-primary)] hover:underline mb-4 bg-[var(--color-primary)]/10 p-2 rounded-lg w-fit transition-colors hover:bg-[var(--color-primary)]/20"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <MapPin className="h-4 w-4" />
+                    <span>Haritada Gör</span>
+                </a>
             )}
 
             <div className="grid grid-cols-4 gap-2 pt-3 border-t border-[var(--color-border)]">

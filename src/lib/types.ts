@@ -12,6 +12,12 @@ export interface User {
     createdAt: string;
 }
 
+export interface Location {
+    lat: number;
+    lng: number;
+    address?: string;
+}
+
 export interface Post {
     id: string;
     authorId: string;
@@ -21,6 +27,7 @@ export interface Post {
     detail: string;
     imageUrl?: string;
     category: string;
+    location?: Location;
     likesCount: number;
     commentsCount: number;
     savesCount: number;

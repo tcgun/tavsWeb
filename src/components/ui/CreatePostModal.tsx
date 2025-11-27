@@ -8,6 +8,13 @@ import { X, ImagePlus, ChevronDown } from "lucide-react";
 import { uploadImage } from "@/services/imageUpload";
 import { useCategories } from "@/hooks/useCategories";
 
+import dynamic from 'next/dynamic';
+
+const MapPicker = dynamic(() => import('./MapPicker'), {
+    ssr: false,
+    loading: () => <div className="h-[300px] w-full bg-[var(--color-card)] animate-pulse rounded-lg border border-[var(--color-border)] flex items-center justify-center text-[var(--color-muted)]">Harita yükleniyor...</div>
+});
+
 interface CreatePostModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -19,6 +26,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
     const [detail, setDetail] = useState("");
     const [category, setCategory] = useState(initialCategory || "Dizi/Film");
     const [image, setImage] = useState<File | null>(null);
+    const [location, setLocation] = useState<{ lat: number, lng: number, address?: string } | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
     const [loading, setLoading] = useState(false);
 
@@ -47,6 +55,11 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
 
     const categories = fetchedCategories.length > 0 ? fetchedCategories.map(c => c.name) : defaultCategories;
 
+    // Check if we should show the map based on category
+    const shouldShowMap = ["kafe", "restoran", "mekan", "seyahat", "tadilat", "tamirat"].some(keyword =>
+        category.toLowerCase().includes(keyword)
+    );
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!auth.currentUser) return;
@@ -68,6 +81,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
                 detail,
                 category,
                 imageUrl,
+                location: location ? { lat: location.lat, lng: location.lng, address: location.address } : null,
                 likesCount: 0,
                 commentsCount: 0,
                 savesCount: 0,
@@ -79,6 +93,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
             setDetail("");
             setCategory("Dizi/Film");
             setImage(null);
+            setLocation(null);
             setShowImageUpload(false);
             onClose();
         } catch (err) {
@@ -105,9 +120,9 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
 
             {/* Modal - Bottom sheet on mobile, centered modal on desktop */}
             <div className="fixed inset-x-0 bottom-0 lg:inset-0 lg:flex lg:items-center lg:justify-center z-[70] animate-slide-up">
-                <div className="bg-[var(--color-card)] lg:rounded-[40px] rounded-t-[40px] border-t lg:border border-[var(--color-border)] lg:max-w-2xl lg:w-full mx-auto shadow-2xl overflow-hidden">
+                <div className="bg-[var(--color-card)] lg:rounded-[40px] rounded-t-[40px] border-t lg:border border-[var(--color-border)] lg:max-w-2xl lg:w-full mx-auto shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                     {/* Header */}
-                    <div className="bg-[var(--color-card)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
+                    <div className="bg-[var(--color-card)] border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between shrink-0">
                         <h2 className="text-lg font-bold text-[var(--color-text)]">Tavsiye Paylaş</h2>
                         <button
                             onClick={onClose}
@@ -118,8 +133,8 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleSubmit}>
-                        <div className="custom-scroll overflow-y-auto max-h-[calc(90vh-80px)] p-4 space-y-3">
+                    <form onSubmit={handleSubmit} className="flex-1 overflow-hidden flex flex-col">
+                        <div className="custom-scroll overflow-y-auto p-4 space-y-3 flex-1">
 
                             {/* Error Message */}
                             {error && (
@@ -160,6 +175,20 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
                                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[var(--color-primary)] pointer-events-none" />
                                 </div>
                             </div>
+
+                            {/* Map Picker */}
+                            {shouldShowMap && (
+                                <div className="animate-fade-in">
+                                    <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
+                                        Konum Seç
+                                    </label>
+                                    <MapPicker onLocationSelect={setLocation} />
+                                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                                        {location ? (location.address || "Konum seçildi.") : "Haritadan bir konum işaretleyin."}
+                                    </p>
+                                </div>
+                            )}
+
                             {/* Details */}
                             <div>
                                 <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
@@ -216,7 +245,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
                             )}
 
                             {/* Submit Button */}
-                            <div className="pt-2">
+                            <div className="pt-2 pb-2">
                                 <button
                                     type="submit"
                                     disabled={loading}

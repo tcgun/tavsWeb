@@ -6,6 +6,7 @@ import FloatingActionButton from "@/components/layout/FloatingActionButton";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/components/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
+import ChatBot from "@/components/ui/ChatBot";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -58,6 +59,7 @@ export default function RootLayout({
               {children}
             </ErrorBoundary>
             <FloatingActionButton />
+            <ChatBot />
             <BottomNav />
           </AuthGuard>
         </AuthProvider>

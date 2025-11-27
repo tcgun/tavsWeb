@@ -88,3 +88,30 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-primary) var(--color-card);
 }
+
+/* Leaflet Geosearch Fixes */
+.leaflet-control-geosearch form {
+  background: white !important;
+  border-radius: 4px !important;
+}
+
+.leaflet-control-geosearch input {
+  color: black !important;
+  background: white !important;
+}
+
+.leaflet-control-geosearch .results {
+  background: white !important;
+  color: black !important;
+}
+
+.leaflet-control-geosearch .results>* {
+  border-color: #eee !important;
+}
+
+.leaflet-control-geosearch .results>.active,
+.leaflet-control-geosearch .results> :hover {
+  background-color: #f8f9fa !important;
+  border-color: #f8f9fa !important;
+  cursor: pointer !important;
+}
