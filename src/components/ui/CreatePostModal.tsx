@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { addDoc, collection } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
-import { X, ImagePlus, ChevronDown } from "lucide-react";
+import { X, ImagePlus, ChevronDown, Sparkles } from "lucide-react";
 
 import { uploadImage } from "@/services/imageUpload";
 import { useCategories } from "@/hooks/useCategories";
@@ -29,6 +29,7 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
     const [location, setLocation] = useState<{ lat: number, lng: number, address?: string } | null>(null);
     const [showImageUpload, setShowImageUpload] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [generatingContent, setGeneratingContent] = useState(false);
 
     const [error, setError] = useState<string | null>(null);
 
@@ -191,9 +192,42 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
 
                             {/* Details */}
                             <div>
-                                <label className="block text-sm font-medium text-[var(--color-muted)] mb-1">
-                                    Detaylar
-                                </label>
+                                <div className="flex items-center justify-between mb-1">
+                                    <label className="block text-sm font-medium text-[var(--color-muted)]">
+                                        Detaylar
+                                    </label>
+                                    {title && (
+                                        <button
+                                            type="button"
+                                            onClick={async () => {
+                                                if (!title) return;
+                                                setGeneratingContent(true);
+                                                try {
+                                                    const response = await fetch('/api/generate-content', {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ title, category }),
+                                                    });
+                                                    const data = await response.json();
+                                                    if (data.content) {
+                                                        setDetail(data.content);
+                                                    } else {
+                                                        setError(data.error || 'İçerik oluşturulamadı.');
+                                                    }
+                                                } catch (err) {
+                                                    setError('İçerik oluşturulurken bir hata oluştu.');
+                                                } finally {
+                                                    setGeneratingContent(false);
+                                                }
+                                            }}
+                                            disabled={generatingContent}
+                                            className="flex items-center gap-1 text-xs text-[var(--color-primary)] hover:text-[var(--color-secondary)] transition-colors disabled:opacity-50"
+                                        >
+                                            <Sparkles className="h-3 w-3" />
+                                            {generatingContent ? 'Oluşturuluyor...' : 'Sihirli Değnek'}
+                                        </button>
+                                    )}
+                                </div>
                                 <textarea
                                     required
                                     value={detail}
