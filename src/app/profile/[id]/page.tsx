@@ -32,6 +32,7 @@ export default function UserProfilePage() {
                     const userData = userDoc.data() as User;
                     setProfileUser({
                         ...userData,
+                        uid: userDoc.id,
                         stats: userData.stats || { followers: 0, following: 0 }
                     });
                 } else {
