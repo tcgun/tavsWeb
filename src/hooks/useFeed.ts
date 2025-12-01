@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { collection, query, orderBy, limit, startAfter, getDocs, DocumentData, QueryDocumentSnapshot } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { collection, query, orderBy, limit, startAfter, getDocs, DocumentData, QueryDocumentSnapshot, onSnapshot } from "firebase/firestore";
+import { db, auth } from "@/lib/firebase";
 import { Post } from "@/lib/types";
+import { onAuthStateChanged } from "firebase/auth";
 
-const POSTS_PER_PAGE = 5;
+const POSTS_PER_PAGE = 10;
 
 export function useFeed() {
+    const [user, setUser] = useState<any>(null);
+    const [followingIds, setFollowingIds] = useState<string[]>([]);
     const [posts, setPosts] = useState<Post[]>([]);
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
@@ -14,6 +17,30 @@ export function useFeed() {
 
     const lastVisibleRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    // 1. Listen for auth state
+    useEffect(() => {
+        const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+            setUser(currentUser);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    // 2. Fetch following IDs (to exclude them)
+    useEffect(() => {
+        if (!user) {
+            setFollowingIds([]);
+            return;
+        }
+
+        const followingRef = collection(db, "users", user.uid, "following");
+        const unsubscribe = onSnapshot(followingRef, (snap) => {
+            const ids = snap.docs.map(d => d.id);
+            setFollowingIds(ids);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
 
     const fetchPosts = useCallback(async (isInitial = false) => {
         if (abortControllerRef.current) {
@@ -30,10 +57,14 @@ export function useFeed() {
                 setLoadingMore(true);
             }
 
+            // Fetch more posts than needed to account for client-side filtering
+            // We fetch 3x the page size to have a buffer
+            const FETCH_LIMIT = POSTS_PER_PAGE * 3;
+
             let q = query(
                 collection(db, "posts"),
                 orderBy("createdAt", "desc"),
-                limit(POSTS_PER_PAGE)
+                limit(FETCH_LIMIT)
             );
 
             if (!isInitial && lastVisibleRef.current) {
@@ -41,7 +72,7 @@ export function useFeed() {
                     collection(db, "posts"),
                     orderBy("createdAt", "desc"),
                     startAfter(lastVisibleRef.current),
-                    limit(POSTS_PER_PAGE)
+                    limit(FETCH_LIMIT)
                 );
             }
 
@@ -51,10 +82,37 @@ export function useFeed() {
                 setHasMore(false);
                 if (isInitial) setPosts([]);
             } else {
-                const fetchedPosts: Post[] = snapshot.docs.map(doc => ({
+                let fetchedPosts: Post[] = snapshot.docs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 } as Post));
+
+                // Filter out followed users and self
+                if (user) {
+                    const excludedIds = new Set([user.uid, ...followingIds]);
+                    console.log(`DEBUG: Filtering with ${excludedIds.size} IDs. Following:`, followingIds);
+
+                    fetchedPosts = fetchedPosts.filter(post => {
+                        const isExcluded = excludedIds.has(post.authorId);
+                        if (!isExcluded) {
+                            // Check why it wasn't excluded if user thinks it should be
+                            const match = followingIds.find(id => id == post.authorId); // loose check
+                            const strictMatch = followingIds.find(id => id === post.authorId); // strict check
+
+                            if (match || strictMatch) {
+                                console.error(`DEBUG: CRITICAL! ID ${post.authorId} found in list but Set.has failed? Match: ${match}, Strict: ${strictMatch}`);
+                            } else {
+                                // Check for partial matches or whitespace
+                                const trimmedMatch = followingIds.find(id => id.trim() === post.authorId.trim());
+                                if (trimmedMatch) {
+                                    console.warn(`DEBUG: Whitespace mismatch! List: '${trimmedMatch}' vs Post: '${post.authorId}'`);
+                                }
+                            }
+                            console.log(`DEBUG: Explore KEEPING ${post.authorName} (ID: '${post.authorId}', Len: ${post.authorId.length})`);
+                        }
+                        return !isExcluded;
+                    });
+                }
 
                 lastVisibleRef.current = snapshot.docs[snapshot.docs.length - 1];
 
@@ -68,7 +126,8 @@ export function useFeed() {
                     });
                 }
 
-                if (snapshot.docs.length < POSTS_PER_PAGE) {
+                // If we fetched less than limit, we are probably at the end
+                if (snapshot.docs.length < FETCH_LIMIT) {
                     setHasMore(false);
                 }
             }
@@ -84,10 +143,13 @@ export function useFeed() {
                 setLoadingMore(false);
             }
         }
-    }, []);
+    }, [user, followingIds]);
 
     useEffect(() => {
+        // Wait for user and followingIds to be ready (or user to be null)
+        // We add a small delay or check if we are ready to avoid double fetch
         fetchPosts(true);
+
         return () => {
             if (abortControllerRef.current) {
                 abortControllerRef.current.abort();

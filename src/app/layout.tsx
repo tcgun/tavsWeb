@@ -7,6 +7,9 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/components/AuthContext";
 import AuthGuard from "@/components/AuthGuard";
 import ChatBot from "@/components/ui/ChatBot";
+import { AIChatProvider } from "@/context/AIChatContext";
+import { OverlayChatProvider } from "@/context/OverlayChatContext";
+import ChatOverlay from "@/components/chat/ChatOverlay";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -55,12 +58,16 @@ export default function RootLayout({
       >
         <AuthProvider>
           <AuthGuard>
-            <ErrorBoundary>
-              {children}
-            </ErrorBoundary>
-            <FloatingActionButton />
-            <ChatBot />
-            <BottomNav />
+            <AIChatProvider>
+              <OverlayChatProvider>
+                <ErrorBoundary>
+                  {children}
+                </ErrorBoundary>
+                <ChatBot />
+                <ChatOverlay />
+                <BottomNav />
+              </OverlayChatProvider>
+            </AIChatProvider>
           </AuthGuard>
         </AuthProvider>
       </body>

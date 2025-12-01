@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { doc, updateDoc, increment, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
-import { useChat } from "@/hooks/useChat";
+import { useOverlayChat } from "@/context/OverlayChatContext";
 
 interface ProfileHeaderProps {
     user: User;
@@ -19,7 +19,7 @@ export default function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps
     const [followersCount, setFollowersCount] = useState(user.stats?.followers || 0);
 
     const router = useRouter();
-    const { startChat } = useChat();
+
 
     useEffect(() => {
         if (!auth.currentUser || isOwnProfile) return;
@@ -98,11 +98,11 @@ export default function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps
         }
     };
 
+    const { openChat } = useOverlayChat();
+
     const handleMessage = async () => {
         if (!auth.currentUser) return;
-
-        await startChat(user.uid, user.displayName || "Kullanıcı");
-        router.push("/messages");
+        await openChat(user);
     };
 
     return (

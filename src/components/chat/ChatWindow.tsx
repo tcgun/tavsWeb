@@ -1,6 +1,6 @@
 "use client";
 
-import { Send } from "lucide-react";
+import { Send, ArrowLeft } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { Chat, Message } from "@/hooks/useChat";
 import { auth } from "@/lib/firebase";
@@ -10,14 +10,17 @@ interface ChatWindowProps {
     messages: Message[];
     onSendMessage: (text: string) => void;
     loading: boolean;
+    onBack?: () => void;
 }
 
-export default function ChatWindow({ chat, messages, onSendMessage, loading }: ChatWindowProps) {
+export default function ChatWindow({ chat, messages, onSendMessage, loading, onBack }: ChatWindowProps) {
     const [newMessage, setNewMessage] = useState("");
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+    const messagesContainerRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+        if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+        }
     };
 
     useEffect(() => {
@@ -47,20 +50,21 @@ export default function ChatWindow({ chat, messages, onSendMessage, loading }: C
         <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl h-[calc(100vh-10rem)] flex flex-col">
             {/* Header */}
             <div className="p-4 border-b border-[var(--color-border)] flex items-center gap-3">
+                {onBack && (
+                    <button onClick={onBack} className="md:hidden p-1 -ml-2 text-[var(--color-text)] hover:bg-[var(--color-background)] rounded-full">
+                        <ArrowLeft className="h-6 w-6" />
+                    </button>
+                )}
                 <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold">
                     {otherUserName[0]}
                 </div>
                 <div>
                     <h3 className="font-bold text-[var(--color-text)]">{otherUserName}</h3>
-                    <span className="text-xs text-green-500 flex items-center gap-1">
-                        <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        Çevrimiçi
-                    </span>
                 </div>
             </div>
 
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
                 {loading ? (
                     <div className="text-center text-[var(--color-muted)]">Yükleniyor...</div>
                 ) : messages.length === 0 ? (
@@ -71,8 +75,8 @@ export default function ChatWindow({ chat, messages, onSendMessage, loading }: C
                         return (
                             <div key={msg.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                                 <div className={`max-w-[70%] rounded-2xl px-4 py-2 ${isMe
-                                        ? "bg-[var(--color-primary)] text-white rounded-br-none"
-                                        : "bg-[var(--color-background)] text-[var(--color-text)] border border-[var(--color-border)] rounded-bl-none"
+                                    ? "bg-[var(--color-primary)] text-white rounded-br-none"
+                                    : "bg-[var(--color-background)] text-[var(--color-text)] border border-[var(--color-border)] rounded-bl-none"
                                     }`}>
                                     <p>{msg.text}</p>
                                     <span className={`text-[10px] block mt-1 ${isMe ? "text-white/70" : "text-[var(--color-muted)]"}`}>
@@ -83,7 +87,7 @@ export default function ChatWindow({ chat, messages, onSendMessage, loading }: C
                         );
                     })
                 )}
-                <div ref={messagesEndRef} />
+
             </div>
 
             {/* Input Area */}

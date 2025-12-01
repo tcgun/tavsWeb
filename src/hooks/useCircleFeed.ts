@@ -4,8 +4,7 @@ import { db, auth } from "@/lib/firebase";
 import { Post } from "@/lib/types";
 import { onAuthStateChanged } from "firebase/auth";
 
-const POSTS_PER_PAGE = 5;
-const MAX_FOLLOWING_IN_QUERY = 10; // Firestore 'in' limit
+const POSTS_PER_PAGE = 10;
 
 export function useCircleFeed() {
     const [user, setUser] = useState<any>(null);
@@ -43,8 +42,9 @@ export function useCircleFeed() {
             const ids = snap.docs.map(d => d.id);
             setFollowingCount(ids.length);
 
-            // Include own ID to see own posts
-            const allIds = [user.uid, ...ids];
+            // Exclude own ID to see only followed users' posts
+            const allIds = [...ids];
+            console.log("DEBUG: Following IDs:", allIds);
             setFollowingIds(allIds);
 
             if (allIds.length === 0) {
@@ -59,7 +59,7 @@ export function useCircleFeed() {
         return () => unsubscribe();
     }, [user]);
 
-    // 3. Fetch posts with optimized query
+    // 3. Fetch posts with optimized query (Chunked)
     const fetchPosts = useCallback(async (isInitial = false) => {
         if (!user || followingIds.length === 0) {
             if (isInitial) setLoading(false);
@@ -79,45 +79,87 @@ export function useCircleFeed() {
                 setLoadingMore(true);
             }
 
-            // Firestore 'in' query supports max 10 values.
-            // We take the first 10 IDs (including self).
-            // TODO: Implement chunking or separate feed collection for >10 following
-            const idsToQuery = followingIds.slice(0, MAX_FOLLOWING_IN_QUERY);
-
-            let q = query(
-                collection(db, "posts"),
-                where("authorId", "in", idsToQuery),
-                orderBy("createdAt", "desc"),
-                limit(POSTS_PER_PAGE)
-            );
-
-            if (!isInitial && lastVisibleRef.current) {
-                q = query(
-                    collection(db, "posts"),
-                    where("authorId", "in", idsToQuery),
-                    orderBy("createdAt", "desc"),
-                    startAfter(lastVisibleRef.current),
-                    limit(POSTS_PER_PAGE)
-                );
+            // Firestore 'in' limit is 30
+            const CHUNK_SIZE = 30;
+            const chunks = [];
+            for (let i = 0; i < followingIds.length; i += CHUNK_SIZE) {
+                chunks.push(followingIds.slice(i, i + CHUNK_SIZE));
             }
 
-            const snapshot = await getDocs(q);
+            const promises = chunks.map(async (chunk, index) => {
+                try {
+                    console.log(`DEBUG: Querying chunk ${index} with ${chunk.length} users:`, chunk);
+                    let q = query(
+                        collection(db, "posts"),
+                        where("authorId", "in", chunk),
+                        orderBy("createdAt", "desc"),
+                        limit(POSTS_PER_PAGE)
+                    );
 
-            if (snapshot.empty) {
+                    if (!isInitial && lastVisibleRef.current) {
+                        const lastData = lastVisibleRef.current.data();
+                        if (lastData && lastData.createdAt) {
+                            q = query(
+                                collection(db, "posts"),
+                                where("authorId", "in", chunk),
+                                orderBy("createdAt", "desc"),
+                                startAfter(lastData.createdAt),
+                                limit(POSTS_PER_PAGE)
+                            );
+                        }
+                    }
+                    const snap = await getDocs(q);
+                    console.log(`DEBUG: Chunk ${index} returned ${snap.size} docs`);
+                    snap.docs.forEach(d => {
+                        const data = d.data();
+                        console.log(`DEBUG: Found post ${d.id} from ${data.authorName} (${data.authorId}). CreatedAt: ${data.createdAt}`);
+                    });
+                    return snap.docs;
+                } catch (err) {
+                    console.error(`DEBUG: Error fetching chunk ${index}:`, err);
+                    return [];
+                }
+            });
+
+            const results = await Promise.all(promises);
+            const allDocs = results.flat();
+
+            // Sort by createdAt desc
+            allDocs.sort((a, b) => {
+                const getData = (doc: any) => {
+                    const data = doc.data();
+                    if (data.createdAt && typeof data.createdAt.toMillis === 'function') {
+                        return data.createdAt.toMillis();
+                    }
+                    if (data.createdAt instanceof Date) {
+                        return data.createdAt.getTime();
+                    }
+                    // Fallback for missing or invalid date (place at bottom)
+                    return 0;
+                };
+
+                const dateA = getData(a);
+                const dateB = getData(b);
+                return dateB - dateA;
+            });
+
+            // Take top POSTS_PER_PAGE
+            const topDocs = allDocs.slice(0, POSTS_PER_PAGE);
+
+            if (topDocs.length === 0) {
                 setHasMore(false);
                 if (isInitial) setPosts([]);
             } else {
-                const fetchedPosts: Post[] = snapshot.docs.map(doc => ({
+                const fetchedPosts: Post[] = topDocs.map(doc => ({
                     id: doc.id,
                     ...doc.data()
                 } as Post));
 
-                lastVisibleRef.current = snapshot.docs[snapshot.docs.length - 1];
+                lastVisibleRef.current = topDocs[topDocs.length - 1];
 
                 if (isInitial) {
                     setPosts(fetchedPosts);
                 } else {
-                    // Filter out duplicates just in case
                     setPosts(prev => {
                         const existingIds = new Set(prev.map(p => p.id));
                         const newPosts = fetchedPosts.filter(p => !existingIds.has(p.id));
@@ -125,7 +167,7 @@ export function useCircleFeed() {
                     });
                 }
 
-                if (snapshot.docs.length < POSTS_PER_PAGE) {
+                if (topDocs.length < POSTS_PER_PAGE) {
                     setHasMore(false);
                 }
             }

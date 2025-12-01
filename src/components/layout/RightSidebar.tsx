@@ -120,7 +120,7 @@ function UserItem({ user }: { user: any }) {
 
     return (
         <div className="flex items-center gap-3">
-            <Link href={`/profile?uid=${user.uid}`} className="flex items-center gap-3 flex-1">
+            <Link href={`/profile/${user.uid}`} className="flex items-center gap-3 flex-1">
                 <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold overflow-hidden">
                     {user.photoURL ? (
                         <img src={user.photoURL} alt={user.displayName} className="w-full h-full object-cover" />

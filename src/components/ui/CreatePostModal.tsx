@@ -155,7 +155,18 @@ export default function CreatePostModal({ isOpen, onClose, initialCategory }: Cr
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     className="w-full bg-[var(--color-background)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-[var(--color-text)] focus:outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all text-sm"
-                                    placeholder="Örn: Harika bir film izledim..."
+                                    placeholder={(() => {
+                                        switch (category) {
+                                            case "Dizi/Film": return "Hangi filmi veya diziyi izledin? 🎬";
+                                            case "Kitap": return "Hangi kitabı okudun? 📚";
+                                            case "Müzik": return "Hangi şarkıyı veya albümü dinledin? 🎵";
+                                            case "Mekan": return "Nereyi keşfettin? 📍";
+                                            case "Teknoloji": return "Hangi teknolojik ürünü denedin? 📱";
+                                            case "Yeme/İçme": return "Ne yedin, ne içtin? 🍔";
+                                            case "Oyun": return "Hangi oyunu oynadın? 🎮";
+                                            default: return "Tavsiyen nedir? ✨";
+                                        }
+                                    })()}
                                 />
                             </div>
                             {/* Category */}

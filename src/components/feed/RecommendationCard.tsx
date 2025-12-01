@@ -18,10 +18,16 @@ interface RecommendationCardProps {
 
 export default function RecommendationCard({ post, isDetailView = false }: RecommendationCardProps) {
     const { user } = useAuth();
+    console.log("Card render:", post.id, post.title);
+    const router = useRouter();
     const [liked, setLiked] = useState(false);
     const [saved, setSaved] = useState(false);
     const [likesCount, setLikesCount] = useState(post.likesCount);
     const [savesCount, setSavesCount] = useState(post.savesCount);
+
+    // New state for inline expansion
+    const [isExpanded, setIsExpanded] = useState(false);
+    const isLongText = post.detail.length > 150;
 
     // Reset counts when post ID changes
     useEffect(() => {
@@ -141,8 +147,6 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
         }
     };
 
-    const router = useRouter();
-
     const handleDelete = async () => {
         if (!window.confirm("Bu tavsiyeyi silmek istediğinize emin misiniz?")) return;
 
@@ -157,18 +161,26 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
         }
     };
 
+    const handleDetailClick = () => {
+        if (!isDetailView) {
+            router.push(`/post/${post.id}`);
+        }
+    };
+
     return (
         <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-4 mb-4 relative group">
             <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold">
-                    {(post.authorName && post.authorName[0]) || "?"}
-                </div>
-                <div>
-                    <h4 className="font-semibold text-[var(--color-text)]">{post.authorName || "İsimsiz Kullanıcı"}</h4>
-                    <p className="text-xs text-[var(--color-muted)]">
-                        {new Date(post.createdAt).toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                </div>
+                <Link href={`/profile/${post.authorId}`} className="flex items-center gap-3 group/profile">
+                    <div className="w-10 h-10 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white font-bold group-hover/profile:opacity-80 transition-opacity">
+                        {(post.authorName && post.authorName[0]) || "?"}
+                    </div>
+                    <div>
+                        <h4 className="font-semibold text-[var(--color-text)] group-hover/profile:text-[var(--color-primary)] transition-colors">{post.authorName || "İsimsiz Kullanıcı"}</h4>
+                        <p className="text-xs text-[var(--color-muted)]">
+                            {new Date(post.createdAt).toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                    </div>
+                </Link>
                 <div className="ml-auto flex items-center gap-2">
                     <span className="text-xs bg-[var(--color-background)] px-2 py-1 rounded-full text-[var(--color-primary)] border border-[var(--color-border)]">
                         {post.category}
@@ -185,17 +197,27 @@ export default function RecommendationCard({ post, isDetailView = false }: Recom
                 </div>
             </div>
 
-            {isDetailView ? (
-                <h3 className="text-lg font-bold text-[var(--color-primary)] mb-2">{post.title}</h3>
-            ) : (
-                <Link href={`/post/${post.id}`}>
-                    <h3 className="text-lg font-bold text-[var(--color-primary)] mb-2 hover:underline cursor-pointer">{post.title}</h3>
-                </Link>
-            )}
+            <h3 className="text-lg font-bold text-[var(--color-primary)] mb-2">{post.title}</h3>
 
-            <p className={`text-[var(--color-text)] mb-4 text-sm leading-relaxed ${!isDetailView && "line-clamp-3"}`}>
-                {post.detail}
-            </p>
+            <div
+                onClick={handleDetailClick}
+                className={`mb-4 group/detail ${!isDetailView ? "cursor-pointer" : ""}`}
+            >
+                <p className={`text-[var(--color-text)] text-sm leading-relaxed whitespace-pre-wrap ${!isDetailView && !isExpanded ? "line-clamp-3" : ""}`}>
+                    {post.detail}
+                </p>
+                {!isDetailView && isLongText && !isExpanded && (
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setIsExpanded(true);
+                        }}
+                        className="text-xs font-medium text-[var(--color-muted)] mt-1 block hover:text-[var(--color-primary)] transition-colors"
+                    >
+                        Devamını gör...
+                    </button>
+                )}
+            </div>
 
             {post.imageUrl && (
                 <div className="relative w-full h-64 mb-4 rounded-lg overflow-hidden">

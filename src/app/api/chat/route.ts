@@ -25,12 +25,13 @@ export async function POST(req: Request) {
     try {
         const { message, history } = await req.json();
 
+        console.log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);
         if (!process.env.GEMINI_API_KEY) {
-            console.error("API Key missing");
+            console.error("API Key missing in process.env");
             return NextResponse.json({ error: "API Key yapılandırılmamış." }, { status: 500 });
         }
 
-        // Use gemini-flash-latest as it is confirmed to work with this key
+        // Use gemini-flash-latest as primary
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
         const chat = model.startChat({
@@ -42,7 +43,19 @@ export async function POST(req: Request) {
 
         const prompt = `${SYSTEM_PROMPT}\n\nKullanıcı: ${message}\nSen:`;
 
-        const result = await model.generateContent(prompt);
+        let result;
+        try {
+            result = await model.generateContent(prompt);
+        } catch (error: any) {
+            if (error.message?.includes("503") || error.message?.includes("overloaded")) {
+                console.log("Model overloaded, trying fallback to gemini-1.5-flash...");
+                const fallbackModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+                result = await fallbackModel.generateContent(prompt);
+            } else {
+                throw error;
+            }
+        }
+
         const response = result.response;
         const text = response.text();
 

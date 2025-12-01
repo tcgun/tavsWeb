@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, query, where, orderBy, onSnapshot, addDoc, doc, updateDoc, serverTimestamp, getDocs } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { sendNotification } from "@/lib/notifications";
 
 export interface Message {
     id: string;
@@ -38,7 +39,12 @@ export function useChat() {
                 const unsubscribeChats = onSnapshot(q, (snapshot) => {
                     const fetchedChats: Chat[] = [];
                     snapshot.forEach((doc) => {
-                        fetchedChats.push({ id: doc.id, ...doc.data() } as Chat);
+                        const chatData = doc.data();
+                        // Only include chats that have a last message (or if we want to show empty chats, handle it differently)
+                        // User requested: "mesaj göndermesek bile kayıtlı kalıyor" -> implies they don't want to see it.
+                        if (chatData.lastMessage && chatData.lastMessage.trim() !== "") {
+                            fetchedChats.push({ id: doc.id, ...chatData } as Chat);
+                        }
                     });
                     setChats(fetchedChats);
                     setLoadingChats(false);
@@ -80,39 +86,49 @@ export function useChat() {
     }, [activeChat]);
 
     // 3. Send Message Function
-    const sendMessage = async (text: string) => {
-        if (!auth.currentUser || !activeChat || !text.trim()) return;
+    // 3. Send Message Function
+    const sendMessage = async (text: string, targetChat?: Chat) => {
+        const chat = targetChat || activeChat;
+        if (!auth.currentUser || !chat || !text.trim()) return;
 
         try {
             // Add message to subcollection
-            await addDoc(collection(db, "chats", activeChat.id, "messages"), {
+            await addDoc(collection(db, "chats", chat.id, "messages"), {
                 text: text,
                 senderId: auth.currentUser.uid,
                 createdAt: serverTimestamp()
             });
 
             // Update chat summary
-            await updateDoc(doc(db, "chats", activeChat.id), {
+            await updateDoc(doc(db, "chats", chat.id), {
                 lastMessage: text,
                 lastMessageTime: serverTimestamp()
             });
+            // Send notification to other participants
+            const otherParticipants = chat.participants.filter(id => id !== auth.currentUser!.uid);
+            for (const participantId of otherParticipants) {
+                await sendNotification(
+                    participantId,
+                    auth.currentUser.uid,
+                    auth.currentUser.displayName || "Kullanıcı",
+                    "message",
+                    chat.id
+                );
+            }
         } catch (error) {
             console.error("Error sending message:", error);
         }
     };
 
     // 4. Create or Get Chat (Helper)
+    // 4. Create or Get Chat (Helper)
     const startChat = async (targetUserId: string, targetUserName: string) => {
-        if (!auth.currentUser) return;
-
-        // Check if chat already exists (simplified check)
-        // In a real app, you might query for existing chat with these 2 participants
-        // For now, we'll just create a new one if not found in local list (which is not perfect but works for simple cases)
+        if (!auth.currentUser) return null;
 
         const existingChat = chats.find(c => c.participants.includes(targetUserId));
         if (existingChat) {
             setActiveChat(existingChat);
-            return;
+            return existingChat;
         }
 
         try {
@@ -127,9 +143,12 @@ export function useChat() {
             };
 
             const docRef = await addDoc(collection(db, "chats"), newChatData);
-            setActiveChat({ id: docRef.id, ...newChatData } as Chat);
+            const newChat = { id: docRef.id, ...newChatData } as Chat;
+            setActiveChat(newChat);
+            return newChat;
         } catch (error) {
             console.error("Error starting chat:", error);
+            return null;
         }
     };
 

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { MessageCircle, X, Send, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useAIChat } from "@/context/AIChatContext";
 
 interface Message {
     role: "user" | "assistant";
@@ -10,7 +11,7 @@ interface Message {
 }
 
 export default function ChatBot() {
-    const [isOpen, setIsOpen] = useState(false);
+    const { isOpen, toggleChat } = useAIChat();
     const [messages, setMessages] = useState<Message[]>([
         { role: "assistant", content: "Merhaba! Ben TavsiyeBot. 👋 Sana nasıl yardımcı olabilirim? Film, kitap veya mekan önerisi ister misin?" }
     ]);
@@ -59,15 +60,15 @@ export default function ChatBot() {
 
     return (
         <>
-            {/* Toggle Button */}
+            {/* Toggle Button - Hidden on mobile, shown on desktop */}
             <button
-                onClick={() => setIsOpen(!isOpen)}
-                className={`fixed bottom-20 right-4 lg:bottom-8 lg:right-8 z-50 p-4 rounded-full shadow-xl transition-all duration-300 hover:scale-110 ${isOpen
+                onClick={toggleChat}
+                className={`hidden lg:block fixed bottom-8 right-8 z-40 p-3 rounded-full shadow-lg transition-all duration-300 hover:scale-105 backdrop-blur-md ${isOpen
                     ? "bg-[var(--color-card)] text-[var(--color-text)] border border-[var(--color-border)]"
-                    : "bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-secondary)] text-white"
+                    : "bg-[var(--color-card)]/60 text-[var(--color-primary)] border border-[var(--color-border)]"
                     }`}
             >
-                {isOpen ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6 animate-pulse" />}
+                {isOpen ? <X className="h-5 w-5" /> : <Sparkles className="h-5 w-5" />}
             </button>
 
             {/* Chat Window */}

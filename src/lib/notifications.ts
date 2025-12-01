@@ -5,7 +5,7 @@ export async function sendNotification(
     receiverId: string,
     senderId: string,
     senderName: string,
-    type: 'like' | 'comment' | 'follow',
+    type: 'like' | 'comment' | 'follow' | 'message',
     sourceId: string // Post ID or User ID
 ) {
     if (receiverId === senderId) return; // Don't notify self

@@ -1,23 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { Search, User, LogOut } from "lucide-react";
+import { Search, User, LogOut, Sparkles, Bell, Plus } from "lucide-react";
 import { auth } from "@/lib/firebase";
 import { signOut } from "firebase/auth";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import CreatePostModal from "@/components/ui/CreatePostModal";
+import { useAIChat } from "@/context/AIChatContext";
 
 export default function Header() {
     const router = useRouter();
+    const { toggleChat } = useAIChat();
     const [searchQuery, setSearchQuery] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
 
     const handleSearch = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && searchQuery.trim()) {
             router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
             setSearchQuery("");
+            setIsMobileSearchOpen(false);
         }
     };
 
@@ -35,6 +39,11 @@ export default function Header() {
         await signOut(auth);
         router.push("/login");
     };
+
+    const pathname = usePathname();
+    const isHome = pathname === "/";
+    const isPostDetail = pathname?.startsWith("/post/");
+    const showMobileShareButton = !isHome && !isPostDetail;
 
     return (
         <>
@@ -67,6 +76,26 @@ export default function Header() {
                                 >
                                     Tavsiye Paylaş
                                 </button>
+
+                                {showMobileShareButton && (
+                                    <button
+                                        onClick={() => setIsModalOpen(true)}
+                                        className="sm:hidden p-2 hover:bg-[var(--color-card)] rounded-full text-[var(--color-primary)]"
+                                    >
+                                        <Plus className="h-5 w-5" />
+                                    </button>
+                                )}
+
+                                <button
+                                    onClick={toggleChat}
+                                    className="md:hidden p-2 hover:bg-[var(--color-card)] rounded-full text-[var(--color-primary)]"
+                                >
+                                    <Sparkles className="h-5 w-5" />
+                                </button>
+
+                                <Link href="/notifications" className="md:hidden p-2 hover:bg-[var(--color-card)] rounded-full text-[var(--color-text)]">
+                                    <Bell className="h-5 w-5" />
+                                </Link>
 
                                 <button onClick={handleLogout} className="p-2 hover:bg-[var(--color-card)] rounded-full text-[var(--color-text)]">
                                     <LogOut className="h-5 w-5" />
