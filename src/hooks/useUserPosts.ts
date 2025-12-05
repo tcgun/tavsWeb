@@ -26,6 +26,8 @@ export function useUserPosts(userId: string | null) {
             });
             setPosts(fetchedPosts);
             setLoading(false);
+        }, (error) => {
+            console.error("Error fetching posts:", error);
         });
 
         return () => unsubscribe();
@@ -33,3 +35,4 @@ export function useUserPosts(userId: string | null) {
 
     return { posts, loading };
 }
+// Force rebuild

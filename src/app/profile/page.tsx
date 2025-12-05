@@ -72,7 +72,11 @@ export default function ProfilePage() {
                     <Sidebar />
 
                     <main className="flex-1 max-w-2xl mx-auto">
-                        <ProfileHeader user={currentUser} isOwnProfile={true} />
+                        <ProfileHeader
+                            user={currentUser}
+                            isOwnProfile={true}
+                            postCount={posts.length}
+                        />
 
                         <div className="mb-6">
                             <h3 className="text-xl font-bold text-[var(--color-text)] mb-4">Paylaşımlar</h3>

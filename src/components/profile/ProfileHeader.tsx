@@ -2,9 +2,9 @@
 
 import { User } from "@/lib/types";
 import Link from "next/link";
-import { Settings } from "lucide-react";
+import { Settings, UserPlus, UserMinus, MessageCircle } from "lucide-react";
 import { useState, useEffect } from "react";
-import { doc, updateDoc, increment, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
+import { doc, increment, writeBatch, serverTimestamp, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import { useRouter } from "next/navigation";
 import { useOverlayChat } from "@/context/OverlayChatContext";
@@ -12,14 +12,14 @@ import { useOverlayChat } from "@/context/OverlayChatContext";
 interface ProfileHeaderProps {
     user: User;
     isOwnProfile: boolean;
+    postCount: number;
 }
 
-export default function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
+export default function ProfileHeader({ user, isOwnProfile, postCount }: ProfileHeaderProps) {
     const [isFollowing, setIsFollowing] = useState(false);
     const [followersCount, setFollowersCount] = useState(user.stats?.followers || 0);
 
     const router = useRouter();
-
 
     useEffect(() => {
         if (!auth.currentUser || isOwnProfile) return;
@@ -79,9 +79,6 @@ export default function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps
                     uid: auth.currentUser.uid,
                     displayName: auth.currentUser.displayName || "",
                     photoURL: auth.currentUser.photoURL || "",
-                    // username is not available in auth.currentUser directly usually, but we can skip or fetch. 
-                    // For simplicity/speed, we might omit username or rely on what we have.
-                    // Ideally we should fetch current user profile first, but let's use what we have.
                     followedAt: serverTimestamp()
                 });
             } else {
@@ -105,63 +102,119 @@ export default function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps
         await openChat(user);
     };
 
+    const handleSocialClick = (type: 'followers' | 'following') => {
+        if (isOwnProfile) {
+            router.push(`/profile/${user.uid}/${type}`);
+        }
+    };
+
     return (
-        <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl p-6 mb-6">
-            <div className="flex flex-col md:flex-row items-center gap-6">
-                <div className="w-24 h-24 rounded-full bg-[var(--color-primary)] flex items-center justify-center text-white text-3xl font-bold overflow-hidden">
-                    {user.photoURL ? (
-                        <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
-                    ) : (
-                        (user.displayName && user.displayName[0]) || "?"
+        <div className="mb-0 pt-8 animate-in fade-in duration-500">
+            {/* New Layout: Centered Container */}
+            <div className="flex flex-col md:flex-row gap-8 md:items-center md:justify-between max-w-5xl mx-auto px-6">
+
+                {/* LEFT: User Info & Actions */}
+                <div className="flex-1 min-w-0 flex flex-col items-center md:items-start text-center md:text-left">
+                    <div className="flex flex-col md:flex-row items-center gap-6 mb-6">
+                        {/* Profile Picture */}
+                        <div className="relative shrink-0">
+                            <div className="w-28 h-28 rounded-full p-0.5 bg-gradient-to-tr from-[var(--color-primary)] to-[var(--color-secondary)] shadow-lg">
+                                <div className="w-full h-full rounded-full bg-[var(--color-card)] p-1">
+                                    <div className="w-full h-full rounded-full bg-[var(--color-secondary)]/10 flex items-center justify-center text-[var(--color-text)] text-4xl font-bold overflow-hidden">
+                                        {user.photoURL ? (
+                                            <img src={user.photoURL} alt={user.displayName || "User"} className="w-full h-full object-cover" />
+                                        ) : (
+                                            (user.displayName && user.displayName[0]) || "?"
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Name & Username */}
+                        <div>
+                            <div className="flex items-center justify-center md:justify-start gap-3">
+                                <h1 className="text-3xl font-bold text-[var(--color-text)] tracking-tight truncate">
+                                    {user.displayName || "İsimsiz Kullanıcı"}
+                                </h1>
+                                {isOwnProfile && (
+                                    <Link href="/profile/edit" className="shrink-0 text-[var(--color-muted)] hover:text-[var(--color-primary)] transition-colors">
+                                        <Settings className="h-6 w-6" />
+                                    </Link>
+                                )}
+                            </div>
+                            <p className="text-[var(--color-muted)] font-medium text-lg">@{user.username || "kullanici"}</p>
+                        </div>
+                    </div>
+
+                    {/* Bio */}
+                    {user.bio && (
+                        <p className="text-[var(--color-text)] text-lg leading-relaxed opacity-90 mb-6 max-w-lg">
+                            {user.bio}
+                        </p>
+                    )}
+
+                    {/* Actions */}
+                    {!isOwnProfile && (
+                        <div className="flex gap-4 w-full md:w-auto mt-2 mb-6 md:mb-0 justify-center md:justify-start">
+                            <button
+                                onClick={handleFollow}
+                                className={`px-8 py-3 rounded-full font-semibold text-base transition-all duration-300 shadow-sm flex items-center justify-center gap-2 ${isFollowing
+                                    ? "bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background)]"
+                                    : "bg-[var(--color-primary)] text-white hover:opacity-90 shadow-md hover:shadow-lg active:scale-95"
+                                    }`}
+                            >
+                                {isFollowing ? <UserMinus className="w-5 h-5" /> : <UserPlus className="w-5 h-5" />}
+                                {isFollowing ? "Takip" : "Takip Et"}
+                            </button>
+                            <button
+                                onClick={handleMessage}
+                                className="px-8 py-3 rounded-full font-semibold text-base bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background)] transition-all duration-300 shadow-sm flex items-center justify-center gap-2"
+                            >
+                                <MessageCircle className="w-5 h-5" />
+                                Mesaj
+                            </button>
+                        </div>
                     )}
                 </div>
 
-                <div className="flex-1 text-center md:text-left">
-                    <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
-                        <h1 className="text-2xl font-bold text-[var(--color-text)]">{user.displayName || "İsimsiz Kullanıcı"}</h1>
-                        {isOwnProfile && (
-                            <Link href="/profile/edit">
-                                <button className="text-[var(--color-muted)] hover:text-[var(--color-text)] p-1">
-                                    <Settings className="h-5 w-5" />
-                                </button>
-                            </Link>
-                        )}
+                {/* RIGHT: Stats */}
+                <div className="flex gap-8 md:gap-12 justify-center md:justify-end shrink-0 md:pt-0">
+                    {/* Recommendations */}
+                    <div className="flex flex-col items-center cursor-default group p-2">
+                        <span className="text-2xl md:text-3xl font-bold text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">
+                            {postCount}
+                        </span>
+                        <span className="text-sm text-[var(--color-muted)] font-medium uppercase tracking-wide mt-1">Tavsiye</span>
                     </div>
-                    <p className="text-[var(--color-muted)] mb-4">@{user.username}</p>
-                    <p className="text-[var(--color-text)] mb-6 max-w-md">{user.bio || "Henüz bir biyografi eklenmemiş."}</p>
 
-                    <div className="flex items-center justify-center md:justify-start gap-8">
-                        <div className="text-center">
-                            <span className="block text-xl font-bold text-[var(--color-primary)]">{followersCount}</span>
-                            <span className="text-sm text-[var(--color-muted)]">Takipçi</span>
-                        </div>
-                        <div className="text-center">
-                            <span className="block text-xl font-bold text-[var(--color-primary)]">{user.stats?.following || 0}</span>
-                            <span className="text-sm text-[var(--color-muted)]">Takip</span>
-                        </div>
+                    {/* Followers */}
+                    <div
+                        onClick={() => handleSocialClick('followers')}
+                        className={`flex flex-col items-center group p-2 ${isOwnProfile ? "cursor-pointer hover:bg-[var(--color-background)] rounded-xl transition-colors" : "cursor-default"}`}
+                    >
+                        <span className="text-2xl md:text-3xl font-bold text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">
+                            {followersCount}
+                        </span>
+                        <span className="text-sm text-[var(--color-muted)] font-medium uppercase tracking-wide mt-1">Takipçi</span>
+                    </div>
+
+                    {/* Following */}
+                    <div
+                        onClick={() => handleSocialClick('following')}
+                        className={`flex flex-col items-center group p-2 ${isOwnProfile ? "cursor-pointer hover:bg-[var(--color-background)] rounded-xl transition-colors" : "cursor-default"}`}
+                    >
+                        <span className="text-2xl md:text-3xl font-bold text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">
+                            {user.stats?.following || 0}
+                        </span>
+                        <span className="text-sm text-[var(--color-muted)] font-medium uppercase tracking-wide mt-1">Takip</span>
                     </div>
                 </div>
 
-                {!isOwnProfile && (
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handleFollow}
-                            className={`px-6 py-2 rounded-full font-medium transition-colors ${isFollowing
-                                ? "bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background)]"
-                                : "bg-[var(--color-primary)] text-white hover:bg-opacity-90"
-                                }`}
-                        >
-                            {isFollowing ? "Takibi Bırak" : "Takip Et"}
-                        </button>
-                        <button
-                            onClick={handleMessage}
-                            className="px-4 py-2 rounded-full font-medium bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-text)] hover:bg-[var(--color-background)] transition-colors"
-                        >
-                            Mesaj Gönder
-                        </button>
-                    </div>
-                )}
             </div>
+
+            {/* Divider */}
+            <div className="h-px bg-[var(--color-border)] my-8 max-w-5xl mx-auto opacity-50"></div>
         </div>
     );
 }

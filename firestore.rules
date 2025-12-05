@@ -94,10 +94,7 @@ service cloud.firestore {
           ) ||
           // 2. Durum: Herhangi bir kullanıcı etkileşim sayaçlarını güncelliyor
           (
-             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'savesCount']) &&
-             isValidCounterUpdate('likesCount') &&
-             isValidCounterUpdate('commentsCount') &&
-             isValidCounterUpdate('savesCount')
+             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likesCount', 'commentsCount', 'savesCount'])
           )
         );
       

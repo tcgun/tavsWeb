@@ -71,21 +71,43 @@ export default function UserProfilePage() {
                 <div className="flex gap-6">
                     <Sidebar />
 
-                    <main className="flex-1 max-w-2xl mx-auto">
-                        <ProfileHeader user={profileUser} isOwnProfile={currentUser?.uid === userId} />
+                    <main className="flex-1 max-w-2xl mx-auto pb-20">
+                        <ProfileHeader
+                            user={profileUser}
+                            isOwnProfile={currentUser?.uid === userId}
+                            postCount={posts.length}
+                        />
 
-                        <div className="mb-6">
-                            <h3 className="text-xl font-bold text-[var(--color-text)] mb-4">Paylaşımlar</h3>
+                        {/* Tabs */}
+                        <div className="flex items-center border-b border-[var(--color-border)] mb-6 overflow-x-auto no-scrollbar">
+                            <button className="px-6 py-3 text-[var(--color-primary)] border-b-2 border-[var(--color-primary)] font-medium text-sm whitespace-nowrap">
+                                Paylaşımlar
+                            </button>
+                            <button className="px-6 py-3 text-[var(--color-muted)] hover:text-[var(--color-text)] font-medium text-sm whitespace-nowrap transition-colors">
+                                Beğenilenler
+                            </button>
+                            <button className="px-6 py-3 text-[var(--color-muted)] hover:text-[var(--color-text)] font-medium text-sm whitespace-nowrap transition-colors">
+                                Koleksiyonlar
+                            </button>
+                        </div>
+
+                        <div className="mb-6 animate-fade-in">
                             {loadingPosts ? (
-                                <p className="text-[var(--color-muted)]">Yükleniyor...</p>
-                            ) : posts.length > 0 ? (
                                 <div className="space-y-4">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="bg-[var(--color-card)] h-64 rounded-xl animate-pulse border border-[var(--color-border)]"></div>
+                                    ))}
+                                </div>
+                            ) : posts.length > 0 ? (
+                                <div className="space-y-6">
                                     {posts.map((post) => (
                                         <RecommendationCard key={post.id} post={post} />
                                     ))}
                                 </div>
                             ) : (
-                                <p className="text-[var(--color-muted)]">Bu kullanıcı henüz hiç paylaşım yapmamış.</p>
+                                <div className="text-center py-12 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl">
+                                    <p className="text-[var(--color-muted)] mb-2">Bu kullanıcı henüz hiç paylaşım yapmamış.</p>
+                                </div>
                             )}
                         </div>
                     </main>

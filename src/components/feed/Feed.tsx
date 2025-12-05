@@ -13,13 +13,13 @@ export default function Feed() {
         <>
             {/* Feed Header */}
             <div className="flex items-center justify-between mb-6">
-                <h1 className="text-2xl font-bold text-[var(--color-text)]">Çemberim</h1>
+                <h1 className="text-2xl font-bold text-[var(--color-text)]">Çember</h1>
                 <div className="flex gap-2">
                     <Link href="/" className="px-3 py-1 bg-[var(--color-primary)] text-white text-sm rounded-full">
-                        Takip Ettiklerim
+                        Çember
                     </Link>
                     <Link href="/explore" className="px-3 py-1 bg-[var(--color-card)] text-[var(--color-text)] text-sm rounded-full hover:bg-[var(--color-border)] transition-colors">
-                        Keşfet
+                        Meydan
                     </Link>
                 </div>
             </div>
@@ -69,10 +69,10 @@ export default function Feed() {
                         {followingCount === 0 ? "Henüz kimseyi takip etmiyorsunuz" : "Çemberinizde henüz paylaşım yok"}
                     </h3>
                     <p className="text-[var(--color-muted)] mb-6">
-                        Yeni insanlar keşfetmek ve tavsiyeler görmek için Keşfet sayfasına göz atın.
+                        Yeni insanlar keşfetmek ve tavsiyeler görmek için Meydan'a göz atın.
                     </p>
                     <Link href="/explore" className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-full font-medium hover:bg-opacity-90">
-                        Keşfet'e Git
+                        Meydan'a Git
                     </Link>
                 </div>
             )}

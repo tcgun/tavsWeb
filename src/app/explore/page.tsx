@@ -23,13 +23,13 @@ export default function ExplorePage() {
                     <main className="flex-1 max-w-2xl mx-auto pb-20">
                         {/* Feed Header */}
                         <div className="flex items-center justify-between mb-6">
-                            <h1 className="text-2xl font-bold text-[var(--color-text)]">Keşfet</h1>
+                            <h1 className="text-2xl font-bold text-[var(--color-text)]">Meydan</h1>
                             <div className="flex gap-2">
                                 <Link href="/" className="px-3 py-1 bg-[var(--color-card)] text-[var(--color-text)] text-sm rounded-full hover:bg-[var(--color-border)] transition-colors">
-                                    Takip Ettiklerim
+                                    Çember
                                 </Link>
                                 <Link href="/explore" className="px-3 py-1 bg-[var(--color-primary)] text-white text-sm rounded-full">
-                                    Keşfet
+                                    Meydan
                                 </Link>
                             </div>
                         </div>
