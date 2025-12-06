@@ -6,6 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { FirebaseError } from "firebase/app";
 
 export default function LoginPage() {
     const [identifier, setIdentifier] = useState(""); // Email or Username
@@ -38,9 +39,9 @@ export default function LoginPage() {
 
             await signInWithEmailAndPassword(auth, emailToSignIn, password);
             router.push("/");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Login error:", err);
-            if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
+            if (err instanceof FirebaseError && (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password')) {
                 setError("Giriş bilgileri hatalı. Lütfen kontrol edin.");
             } else {
                 setError("Giriş yapılırken bir hata oluştu.");
@@ -75,7 +76,7 @@ export default function LoginPage() {
             }
 
             router.push("/");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Social login error:", err);
             setError("Giriş yapılırken bir hata oluştu.");
         }

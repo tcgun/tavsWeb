@@ -6,6 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { FirebaseError } from "firebase/app";
 
 export default function RegisterPage() {
     const [username, setUsername] = useState("");
@@ -40,13 +41,13 @@ export default function RegisterPage() {
             });
 
             router.push("/");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error(err);
-            if (err.code === 'auth/email-already-in-use') {
+            if (err instanceof FirebaseError && err.code === 'auth/email-already-in-use') {
                 setError("Bu e-posta adresi zaten kullanımda. Lütfen giriş yapın.");
-            } else if (err.code === 'auth/weak-password') {
+            } else if (err instanceof FirebaseError && err.code === 'auth/weak-password') {
                 setError("Şifre çok zayıf. En az 6 karakter olmalı.");
-            } else if (err.code === 'auth/invalid-email') {
+            } else if (err instanceof FirebaseError && err.code === 'auth/invalid-email') {
                 setError("Geçersiz e-posta adresi.");
             } else {
                 setError("Kayıt başarısız. Lütfen tekrar deneyin.");
@@ -81,7 +82,7 @@ export default function RegisterPage() {
             }
 
             router.push("/");
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error("Social login error:", err);
             setError("Giriş yapılırken bir hata oluştu.");
         }

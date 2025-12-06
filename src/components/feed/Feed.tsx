@@ -69,10 +69,10 @@ export default function Feed() {
                         {followingCount === 0 ? "Henüz kimseyi takip etmiyorsunuz" : "Çemberinizde henüz paylaşım yok"}
                     </h3>
                     <p className="text-[var(--color-muted)] mb-6">
-                        Yeni insanlar keşfetmek ve tavsiyeler görmek için Meydan'a göz atın.
+                        Yeni insanlar keşfetmek ve tavsiyeler görmek için Meydan&apos;a göz atın.
                     </p>
                     <Link href="/explore" className="px-6 py-2 bg-[var(--color-primary)] text-white rounded-full font-medium hover:bg-opacity-90">
-                        Meydan'a Git
+                        Meydan&apos;a Git
                     </Link>
                 </div>
             )}
